@@ -17,6 +17,7 @@ export class Checkin {
 
     const args: string[] = [
       "--all",
+      "--private",
       "--machinereadable",
       ...paths,
     ];

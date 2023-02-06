@@ -84,7 +84,8 @@ export class CheckinCommand implements Disposable {
   private getCheckinPaths(group: SourceControlResourceGroup): string[] {
     const results = group.resourceStates.map(entry => {
       const change = entry as PlasticScmResource;
-      return change.isPrivate ? null : change.resourceUri.fsPath;
+      // return change.isPrivate ? null : change.resourceUri.fsPath;
+      return change.resourceUri.fsPath;
     });
     return results.filter(path => path !== null) as string[];
   }
