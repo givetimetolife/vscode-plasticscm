@@ -41,6 +41,10 @@ export class Workspace implements Disposable, QuickDiffProvider {
     return this.mStatusResourceGroup as IPlasticScmResourceGroup;
   }
 
+  public get checkinItemsResourceGroup(): IPlasticScmResourceGroup {
+    return this.mCheckinItemsResourceGroup as IPlasticScmResourceGroup;
+  }
+
   public get workspaceConfig(): IWorkspaceConfig | undefined {
     return this.mWorkspaceConfig;
   }
@@ -61,12 +65,21 @@ export class Workspace implements Disposable, QuickDiffProvider {
     return this.mOperations;
   }
 
+  public get checkinItems(): string[] {
+    return this.mCheckinItems;
+  }
+
+  public set checkinItems(items: string[]) {
+    this.mCheckinItems = items;
+  }
+
   public readonly onDidRunStatus: Event<void>;
 
   private readonly mShell: ICmShell;
   private readonly mChannel: OutputChannel;
   private readonly mWkInfo: IWorkspaceInfo;
   private readonly mSourceControl: SourceControl;
+  private readonly mCheckinItemsResourceGroup: SourceControlResourceGroup;
   private readonly mStatusResourceGroup: SourceControlResourceGroup;
   private readonly mUnrealLevelsResourceGroup: SourceControlResourceGroup;
 
@@ -82,6 +95,9 @@ export class Workspace implements Disposable, QuickDiffProvider {
   private onDidChangeStatus: EventEmitter<void>;
 
   private mFileIsBinary: Map<string, boolean>;
+
+  // checkinItems list 
+  private mCheckinItems: string[];
 
   public static async build(
       workspaceInfo: IWorkspaceInfo,
@@ -108,6 +124,7 @@ export class Workspace implements Disposable, QuickDiffProvider {
 
     this.mFileIsBinary = new Map<string, boolean>();
 
+    this.mCheckinItems = [];
     this.mWkInfo = workspaceInfo;
     this.mShell = shell;
     this.mChannel = channel;
@@ -117,8 +134,10 @@ export class Workspace implements Disposable, QuickDiffProvider {
       Uri.file(workspaceInfo.path));
     this.mUnrealLevelsResourceGroup = this.mSourceControl.createResourceGroup(
       "unreal-levels", "Dirty Unreal Levels");
+    this.mCheckinItemsResourceGroup = this.mSourceControl.createResourceGroup(
+      "checkinItems", "Checkin Items")
     this.mStatusResourceGroup = this.mSourceControl.createResourceGroup(
-      "status", "Workspace Status");
+      "status", "Changes");
 
     this.mUnrealLevelsResourceGroup.hideWhenEmpty = true;
 
@@ -136,6 +155,7 @@ export class Workspace implements Disposable, QuickDiffProvider {
       this.mSourceControl,
       this.mUnrealLevelsResourceGroup,
       this.mStatusResourceGroup,
+      this.mCheckinItemsResourceGroup,
       fsWatcher,
       onAnyFsOperationEvent(async () => this.onFileChanged(), this),
     );
@@ -191,6 +211,7 @@ export class Workspace implements Disposable, QuickDiffProvider {
     const changeInfos: IChangeInfo[] = Array.from(pendingChanges.changes.values());
 
     const sourceControlResources: PlasticScmResource[] = [];
+    const checkinItemsControlResources: PlasticScmResource[] = [];
     const unrealLevelResources: SourceControlResourceState[] = [];
 
     // regex pattern for Unreal Engine's One File Per Actor system
@@ -224,6 +245,11 @@ export class Workspace implements Disposable, QuickDiffProvider {
           }
         }
       }
+      if(this.mCheckinItems.includes(changeInfo.path.fsPath)){
+        checkinItemsControlResources.push(new PlasticScmResource(changeInfo, this));
+        continue
+      }
+
       sourceControlResources.push(new PlasticScmResource(changeInfo, this));
     }
 
@@ -270,8 +296,9 @@ export class Workspace implements Disposable, QuickDiffProvider {
     }
 
     this.mStatusResourceGroup.resourceStates = sourceControlResources;
+    this.mCheckinItemsResourceGroup.resourceStates = checkinItemsControlResources;
     this.mUnrealLevelsResourceGroup.resourceStates = unrealLevelResources;
-    this.mSourceControl.count = sourceControlResources.length + unrealLevelResources.length;
+    this.mSourceControl.count = sourceControlResources.length + unrealLevelResources.length + checkinItemsControlResources.length;
 
 
     this.mSourceControl.inputBox.placeholder = this.getCheckinPlaceholder(this.mWorkspaceConfig);

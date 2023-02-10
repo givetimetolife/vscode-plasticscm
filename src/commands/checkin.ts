@@ -46,7 +46,8 @@ export class CheckinCommand implements Disposable {
           workspace.shell,
           this.mPlasticScm.channel,
           comment,
-          ...this.getCheckinPaths(workspace.statusResourceGroup));
+          ...workspace.checkinItems);
+          // ...this.getCheckinPaths(workspace.statusResourceGroup));
 
         await Promise.all(ciResult.map(cset => window.showInformationMessage(
           `Created changeset cs:${cset.changesetInfo.changesetId}`)));

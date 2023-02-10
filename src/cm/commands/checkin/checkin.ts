@@ -17,9 +17,14 @@ export class Checkin {
 
     const args: string[] = [
       "--all",
+      "--private",
       "--machinereadable",
       ...paths,
     ];
+
+    if(paths.length === 0) {
+      return [];
+    }
 
     const checkinCommentsFile = Checkin.writeCheckinMessageToFile(message, channel);
     if (checkinCommentsFile) {

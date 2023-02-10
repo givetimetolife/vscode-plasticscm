@@ -2,13 +2,15 @@
 import * as os from "os";
 import { CmShell, ICmShell } from "./cm/shell";
 import {
+  Uri,
+  commands,
   Disposable,
   OutputChannel,
   window as VsCodeWindow,
   workspace as VsCodeWorkspace,
 } from "vscode";
-import { CheckinCommand } from "./commands";
-import { GetWorkspaceFromPath } from "./cm/commands";
+import { CheckinCommand, UndoCommand} from "./commands";
+import { GetWorkspaceFromPath} from "./cm/commands";
 import { IConfig } from "./config";
 import { IWorkspaceInfo } from "./models";
 import { OpenFileCommand } from "./commands/openFile";
@@ -16,6 +18,8 @@ import { PlasticScmDecorations } from "./decorations";
 import { RefreshCommand } from "./commands/refresh";
 import { Workspace } from "./workspace";
 import { WorkspaceOperations } from "./workspaceOperations";
+import { CheckoutCommand, UndoCheckoutCommand } from "./commands/checkout";
+import { PlasticScmResource } from "./plasticScmResource";
 
 export class PlasticScm implements Disposable {
   public get workspaces(): Map<string, Workspace> {
@@ -90,6 +94,17 @@ export class PlasticScm implements Disposable {
       this.mDisposables.push(new RefreshCommand(this));
       this.mDisposables.push(new OpenFileCommand(this));
       this.mDisposables.push(new PlasticScmDecorations(this));
+      this.mDisposables.push(new CheckoutCommand(this));
+      this.mDisposables.push(new UndoCommand(this));
+
+      const addCheckinItem = commands.registerCommand(
+        "plastic-scm.addCheckinItems", args => this.changeCheckinItems(args, true));
+
+      const removeCheckinItems = commands.registerCommand(
+        "plastic-scm.removeCheckinItems", args => this.changeCheckinItems(args, false));
+
+      this.mDisposables.push(addCheckinItem);
+      this.mDisposables.push(removeCheckinItems);
     }
   }
 
@@ -128,5 +143,44 @@ export class PlasticScm implements Disposable {
       });
 
     return choice?.workspace;
+  }
+
+  private async changeCheckinItems(arg: any, isAdd: boolean): Promise<void> {
+    const workspace: Workspace | undefined = arg instanceof Workspace ?
+    arg as Workspace :
+    await this.promptUserToPickWorkspace();
+
+    if (!workspace) {
+      return;
+    }
+
+    let uris: string[] = [];
+
+    if (arg instanceof Uri) {
+      if (arg.scheme === "file") {
+        uris = [arg.fsPath];
+      }
+    } else {
+      const resource = arg;
+
+      if (resource) {
+        uris = [(resource as PlasticScmResource).resourceUri.fsPath];
+      } 
+    }
+
+    if(uris.length === 0){
+      return
+    }
+
+    if(isAdd){
+      workspace.checkinItems.push(...uris)
+      return
+    }
+
+    const newItems = workspace.checkinItems.filter(function(e: string) { return uris.indexOf(e) < 0 }) as string[];
+
+    workspace.checkinItems = newItems;
+
+    await workspace.updateWorkspaceStatus();
   }
 }

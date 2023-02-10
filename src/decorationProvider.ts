@@ -33,6 +33,7 @@ export class PlasticSCMDecorationProvider implements FileDecorationProvider {
     const newDecorations = new Map<string, FileDecoration>();
 
     this.collectDecorationData(this.workspace.statusResourceGroup, newDecorations);
+    this.collectDecorationData(this.workspace.checkinItemsResourceGroup, newDecorations);
 
     const uris = new Set([...this.decorations.keys()].concat([...newDecorations.keys()]));
     this.decorations = newDecorations;
